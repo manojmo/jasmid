@@ -2,9 +2,20 @@
 function Stream(str) {
 	var position = 0;
 	
-	function read(length) {
+	function read(length, encoding) {
 		var result = str.substr(position, length);
+        //log( "pos:" + position + ",len:" + length + ",re:" + result );
 		position += length;
+        if( encoding && TextDecoder){
+            var bytesArr = [];
+            for( var i=0; i< length; i++ ){
+                //log( result.charAt(i) + "," + result.charCodeAt(i) + "<" );
+                bytesArr[i] = result.charCodeAt(i);
+            }
+            // cannot set Uint8Array directly with literals, use the from(object) typeof constructor
+            result = new TextDecoder(encoding).decode(new Uint8Array(bytesArr));
+            //log( "fr:" + result + "<" );
+        }
 		return result;
 	}
 	
@@ -30,6 +41,7 @@ function Stream(str) {
 	
 	/* read an 8-bit integer */
 	function readInt8(signed) {
+        //log( position + "," + str.charAt(position)  + "," +  str.charCodeAt(position) );
 		var result = str.charCodeAt(position);
 		if (signed && result > 127) result -= 256;
 		position += 1;

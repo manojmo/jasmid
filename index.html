@@ -1,42 +1,84 @@
 <!DOCTYPE HTML>
 <html>
 	<head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /> 
 		<script src="stream.js"></script>
 		<script src="midifile.js"></script>
 		<script src="replayer.js"></script>
 		<script src="synth.js"></script>
 		<script src="audio.js"></script>
+
 		<script>
+			var isIE = !!navigator.userAgent.match(/Trident/g) || !!navigator.userAgent.match(/MSIE/g);
+			var isOldIE = isIE && document.attachEvent;
+			if( isIE ){
+				alert( "May not play well in Internet Explorer" );
+			}
 			function loadRemote(path, callback) {
+                var audio;
 				var fetch = new XMLHttpRequest();
 				fetch.open('GET', path);
-				fetch.overrideMimeType("text/plain; charset=x-user-defined");
+				if( ! isOldIE){
+					fetch.overrideMimeType("text/plain; charset=x-user-defined");
+				}
 				fetch.onreadystatechange = function() {
+                    //alert( 'onreadystatechange' + this.readyState + "," + this.status);
 					if(this.readyState == 4 && this.status == 200) {
 						/* munge response into a binary string */
-						var t = this.responseText || "" ;
-						var ff = [];
-						var mx = t.length;
-						var scc= String.fromCharCode;
-						for (var z = 0; z < mx; z++) {
-							ff[z] = scc(t.charCodeAt(z) & 255);
+                        if ( ! isOldIE){
+							var t = this.responseText || "" ;
+							var ff = [];
+							var mx = t.length;
+							var scc= String.fromCharCode;
+							for (var z = 0; z < mx; z++) {
+								ff[z] = scc(t.charCodeAt(z) & 255);
+								//log(t.charCodeAt(z) & 255);
+							}
+							//log( "cc:" + ff.join("").charCodeAt(42) );
+							callback(ff.join(""));
 						}
-						callback(ff.join(""));
-					}
+						else {
+							// We do get a responseBody back, and the debugger shows it 
+							// to be a byte array, but IE8 does not recognize it as a valid object
+							// callback( this.responseBody);
+							alert("Not supported by this browser");
+						}
+                     }
 				}
 				fetch.send();
 			}
+
+			// to be used for byte array
+			function loadRemote_ba(path, callback) {
+				var oReq = new XMLHttpRequest();
+                oReq.open('GET', path, true);
+                oReq.responseType = "arraybuffer";
+                oReq.onload = 
+                    function (oEvent) {
+                        //log( oReq.status + "," + oReq.readyState + "," + oReq.response);
+                        var byteArray = new Uint8Array(oReq.response); // Note: not oReq.responseText
+                        //log( "callback" );
+                        callback( byteArray);
+                    }
+
+                oReq.send();
+            }           
 			
 			function play(file) {
+                //alert('play');
+				// change the load function here as required
 				loadRemote(file, function(data) {
+                    //alert( 'callback');
 					midiFile = MidiFile(data);
 					synth = Synth(44100);
 					replayer = Replayer(midiFile, synth);
+					// custom handling for lyrics etc
+					customHandleEvent( replayer);
 					audio = AudioPlayer(replayer);
 				})
 			}
 
-			if(FileReader){
+			if( window.FileReader){
 				function cancelEvent(e){
 					e.stopPropagation();
 					e.preventDefault();
@@ -65,10 +107,71 @@
 					}
 				}, false);
 			}
+            var divLyrics = null;
+
+            function customHandleEvent( replayer){
+				replayer.origHandleEvent = replayer.handleEvent;
+				//log( "ohe:" + replayer.handleEvent);
+				replayer.handleEvent = 
+					function( event){
+						//log("ch" + event.subtype);
+						if( event.subtype == 'lyrics' ){
+							addLyrics( event.text);
+						}
+						// invoke original
+						replayer.origHandleEvent( event);
+					};
+            }
+
+            function log( text){
+				// Note : If used for debugging, this can cause problems with playback with flash
+				//return;
+                if( divLog == null ){
+                    divLog = document.getElementById( "divLog" );
+                }
+                divLog.innerHTML += text;
+            }
+			
+			function addLyrics( text){
+                if( divLyrics == null ){
+                    divLyrics = document.getElementById( "divLyrics" );
+                }
+                divLyrics.innerHTML += text;				
+			}
+            
+			// play using notes rather than a midi file
+            function playDummyMidi() {
+                synth = Synth(44100);
+                replayer = Replayer(
+					{
+						'header': {
+							'formatType': 1,
+							'trackCount': 1,
+							'ticksPerBeat': 96
+						},
+						'tracks' : 
+							[ 
+							  [	
+								{ 'type':'channel', 'subtype':'noteOn', 'channel':0, 'noteNumber':61, 'velocity':90, 'deltaTime' : 0 },
+								{ 'type':'channel', 'subtype':'noteOff', 'channel':0, 'noteNumber':61, 'velocity':90, 'deltaTime' : 100 },
+								{ 'type':'meta', 'subtype':'lyrics', 'channel':0, 'text':'Hi', 'deltaTime' : 100 }
+							  ]
+							]
+					}, synth);
+				customHandleEvent( replayer);
+				audio = AudioPlayer(replayer);
+            }
+
 		</script>
 	</head>
 	<body>
 		<a href="javascript:void(play('minute_waltz.mid'))">Chopin - Waltz Op.61 (Minute Waltz)</a> |
 		<a href="javascript:void(play('rachmaninov3.mid'))">Rachmaninov - Piano Concerto No.3 (First movement)</a>
+		<a href="javascript:void(play('b102_Bhairavi_Tin_Kaisi_ye_bhalai.midi'))">Bhairavi_Tin_Kaisi_ye_bhalai</a>
+		<a href="javascript:void(play('All That She Wants.mid'))">All That She Wants</a>
+        <input type="button" value="Stop" onclick="audio.stop()" />
+		<input type="button" value="playDummyMidi" onclick="playDummyMidi()" />
+        <div id="divLyrics" style="font-family:JanaMarathi" ></div>
+		<div id="divLog" ></div>
 	</body>
 </html>

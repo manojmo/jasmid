@@ -5,11 +5,12 @@ function AudioPlayer(generator, opts) {
 	var latency = opts.latency || 1;
 	var checkInterval = latency * 100 /* in ms */
 	
-	var audioElement = new Audio();
+	var audioElement = window.Audio ? new Audio() : {};
 	var webkitAudio = window.AudioContext || window.webkitAudioContext;
 	var requestStop = false;
 	
 	if (audioElement.mozSetup) {
+        //alert( 'moz');
 		audioElement.mozSetup(2, sampleRate); /* channels, sample rate */
 		
 		var buffer = []; /* data generated but not yet written */
@@ -17,6 +18,7 @@ function AudioPlayer(generator, opts) {
 		var bufferFillLength = Math.floor(latency * sampleRate);
 		
 		function checkBuffer() {
+			//log( "checkBuffer");
 			if (buffer.length) {
 				var written = audioElement.mozWriteAudio(buffer);
 				buffer = buffer.slice(written);
@@ -37,6 +39,8 @@ function AudioPlayer(generator, opts) {
 			}
 		}
 	} else if (webkitAudio) {
+        //alert( 'webkit');
+
 		// Uses Webkit Web Audio API if available
 		var context = new webkitAudio();
 		sampleRate = context.sampleRate;
@@ -51,12 +55,14 @@ function AudioPlayer(generator, opts) {
 		function process(e) {
 			if (generator.finished) {
 				node.disconnect();
+                //log( "finished");
 				return;
 			}
 			
 			var dataLeft = e.outputBuffer.getChannelData(0);
 			var dataRight = e.outputBuffer.getChannelData(1);
 
+            //log( "generate:" + bufferSize );
 			var generate = generator.generate(bufferSize);
 
 			for (var i = 0; i < bufferSize; ++i) {
@@ -78,11 +84,17 @@ function AudioPlayer(generator, opts) {
 		}
 
 	} else {
+        //log( 'Using flash');
 		// Fall back to creating flash player
-		var c = document.createElement('div');
-		c.innerHTML = '<embed type="application/x-shockwave-flash" id="da-swf" src="da.swf" width="8" height="8" allowScriptAccess="always" style="position: fixed; left:-10px;" />';
-		document.body.appendChild(c);
+		var flashEleId = "da-swf";
 		var swf = document.getElementById('da-swf');
+		if( swf == null ){
+			var c = document.createElement('div');
+			c.innerHTML = isIE ? '<OBJECT id="' + flashEleId + '" name="' + flashEleId + '" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" width="8" height="8"><PARAM NAME="Movie" VALUE="da.swf"></OBJECT>'
+				: '<embed type="application/x-shockwave-flash" nid="' + flashEleId + '" name="' + flashEleId + '"  src="da.swf" width="8" height="8" allowScriptAccess="always" style="position: fixed; left:-10px;" />';
+			document.body.appendChild(c);
+			swf = c.firstChild;
+		}
 		
 		var minBufferDuration = latency * 1000; /* refill buffer when there are only this many ms remaining */
 		var bufferFillLength = latency * sampleRate;
@@ -96,6 +108,7 @@ function AudioPlayer(generator, opts) {
 		}
 		
 		function checkBuffer() {
+			//log( "checkBuffer"  + swf.bufferedDuration() + "," + minBufferDuration );
 			if (swf.bufferedDuration() < minBufferDuration) {
 				write(generator.generate(bufferFillLength));
 			};
@@ -103,17 +116,25 @@ function AudioPlayer(generator, opts) {
 		}
 		
 		function checkReady() {
+			//log( "checkReady" );
+			if( checkReady.numTimes > 500 ){
+				alert("Problem loading flash component");
+				return;
+			}
 			if (swf.write) {
+				checkReady.numTimes = 0;
 				checkBuffer();
 			} else {
+				checkReady.numTimes ++;
 				setTimeout(checkReady, 10);
 			}
 		}
+		checkReady.numTimes = 0;
 		checkReady();
 		
 		return {
 			'stop': function() {
-				swf.stop();
+				swf.stopp(); // can't expose a function called stop from swf. hence pp
 				requestStop = true;
 			},
 			'bufferedDuration': function() {

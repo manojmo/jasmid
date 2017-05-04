@@ -3,9 +3,10 @@ class to parse the .mid file format
 (depends on stream.js)
 */
 function MidiFile(data) {
-	function readChunk(stream) {
-		var id = stream.read(4);
+	function readChunk(stream, encoding) {
+		var id = stream.read(4,encoding);
 		var length = stream.readInt32();
+		//log( "id,len:" + id  + "," + length );
 		return {
 			'id': id,
 			'length': length,
@@ -50,7 +51,7 @@ function MidiFile(data) {
 						return event;
 					case 0x05:
 						event.subtype = 'lyrics';
-						event.text = stream.read(length);
+						event.text = stream.read(length, "utf-8");
 						return event;
 					case 0x06:
 						event.subtype = 'marker';
@@ -196,7 +197,7 @@ function MidiFile(data) {
 	}
 	
 	stream = Stream(data);
-	var headerChunk = readChunk(stream);
+	var headerChunk = readChunk(stream, "utf-8");
 	if (headerChunk.id != 'MThd' || headerChunk.length != 6) {
 		throw "Bad .mid file - header not found";
 	}
@@ -210,7 +211,7 @@ function MidiFile(data) {
 	} else {
 		ticksPerBeat = timeDivision;
 	}
-	
+	//log( "ftt:" + formatType + "," + trackCount + "," + ticksPerBeat);
 	var header = {
 		'formatType': formatType,
 		'trackCount': trackCount,
@@ -219,7 +220,7 @@ function MidiFile(data) {
 	var tracks = [];
 	for (var i = 0; i < header.trackCount; i++) {
 		tracks[i] = [];
-		var trackChunk = readChunk(stream);
+		var trackChunk = readChunk(stream, "utf-8");
 		if (trackChunk.id != 'MTrk') {
 			throw "Unexpected chunk - expected MTrk, got "+ trackChunk.id;
 		}

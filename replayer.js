@@ -21,6 +21,7 @@ function Replayer(midiFile, synth) {
 		var currentProgram = PianoProgram;
 		
 		function noteOn(note, velocity) {
+			//log( "non" + note + "," + velocity );
 			if (generatorsByNote[note] && !generatorsByNote[note].released) {
 				/* playing same note before releasing the last one. BOO */
 				generatorsByNote[note].noteOff(); /* TODO: check whether we ought to be passing a velocity in */
@@ -69,8 +70,10 @@ function Replayer(midiFile, synth) {
 			}
 		}
 		if (nextEventTrack != null) {
+			//log( "net:" + nextEventTrack);
 			/* consume event from that track */
 			var nextEvent = midiFile.tracks[nextEventTrack][nextEventIndex];
+			//log( "ne:" + nextEvent);
 			if (midiFile.tracks[nextEventTrack][nextEventIndex + 1]) {
 				trackStates[nextEventTrack].ticksToNextEvent += midiFile.tracks[nextEventTrack][nextEventIndex + 1].deltaTime;
 			} else {
@@ -98,7 +101,6 @@ function Replayer(midiFile, synth) {
 		}
 	}
 	
-	getNextEvent();
 	
 	function generate(samples) {
 		var data = new Array(samples*2);
@@ -116,7 +118,7 @@ function Replayer(midiFile, synth) {
 					samplesToNextEvent -= samplesToGenerate;
 				}
 				
-				handleEvent();
+				this.handleEvent( nextEventInfo.event);
 				getNextEvent();
 			} else {
 				/* generate samples to end of buffer */
@@ -130,13 +132,17 @@ function Replayer(midiFile, synth) {
 		return data;
 	}
 	
-	function handleEvent() {
-		var event = nextEventInfo.event;
+	this.handleEvent = function ( event) {	// to allow customization by caller
+		//var event = nextEventInfo.event;
+		//log( "he:" + event.type);
 		switch (event.type) {
 			case 'meta':
 				switch (event.subtype) {
 					case 'setTempo':
 						beatsPerMinute = 60000000 / event.microsecondsPerBeat
+                        break;
+                    default :
+                        break;
 				}
 				break;
 			case 'channel':
@@ -165,7 +171,11 @@ function Replayer(midiFile, synth) {
 	var self = {
 		'replay': replay,
 		'generate': generate,
-		'finished': false
+		'finished': false,
+		'handleEvent' : handleEvent
 	}
+	
+	getNextEvent();
+
 	return self;
 }
