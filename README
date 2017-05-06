@@ -1,5 +1,38 @@
-THIS PROJECT IS NO LONGER MAINTAINED. http://unmaintained.tech/
-===============================================================
+Changes in this fork :
+
+* Demonstrate a way to use without a midi file, but with arrays of event objects
+    containing type, note-number, velocity, time etc
+* Support to play in the above way in IE8, a midi file won't work 
+    due to lack of support for binary data.
+	Changed the stop function in actionscript to stopp, to please IE8
+* Refactoring of stream, to read lyrics as utf-8
+* Refactoring of handleEvent, to allow customization
+* Example of displaying midi lyrics using the above customization
+* An alternative stream_ba.js to read as byte-array, which might be more efficient
+
+I used the flex_sdk to create a .swf file from the actionscript
+
+Usage without midi file :
+
+	replayer = Replayer(
+		{
+			'header': {
+				'formatType': 1,
+				'trackCount': 1,
+				'ticksPerBeat': 96
+			},
+			'tracks' : 
+				[ 
+				  [	
+					{ 'type':'channel', 'subtype':'noteOn', 'channel':0, 'noteNumber':61, 'velocity':90, 'deltaTime' : 0 },
+					{ 'type':'channel', 'subtype':'noteOff', 'channel':0, 'noteNumber':61, 'velocity':90, 'deltaTime' : 100 },
+					{ 'type':'meta', 'subtype':'lyrics', 'channel':0, 'text':'Hi श्याम', 'deltaTime' : 100 }
+				  ]
+				]
+		}, synth);
+
+
+============  Original readme below ===============
 
 jasmid - A Javascript MIDI file reader and synthesiser
 
